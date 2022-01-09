@@ -33,10 +33,11 @@ class MultiChatWS():
         while True:
             recv_data = await self.ws.recv()
             data = json.loads(recv_data)
-            source = data['source-client-name']
-            content = data['content']
-            post_str = '[{}]{}'.format(source, content)
-            await qqws.post(post_str)
+            if data['action'] == 'forwarding-message':
+                source = data['source-client-name']
+                content = data['content']
+                post_str = '[{}]{}'.format(source, content)
+                await qqws.post(post_str)
 
     
     async def stop(self):
@@ -45,6 +46,7 @@ class MultiChatWS():
     
     async def post(self, message):
         obj = {
+            'action': 'client-message',
             'content': message,
         }
         data = json.dumps(obj)
