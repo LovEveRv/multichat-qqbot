@@ -5,6 +5,7 @@ cqhttp-url: 'ws://127.0.0.1:5700/'
 
 groups:           # optional
   - debug:
+    alias: DEBUG  # optional
     group-id: 123456789
     listen: true  # 是否监听此群聊
     post: true    # 是否把消息发送到此群聊

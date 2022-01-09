@@ -21,12 +21,15 @@ class QQBotWS():
             self.name = config['qqbot-name'] if 'qqbot-name' in config else None
         self.listen_groups = set()
         self.listen_friends = set()
+        self.group_aliases = {}
         self.post_groups = []
         self.post_friends = []
         if self.groups:
             for group in self.groups:
                 if group['listen']:
                     self.listen_groups.add(group['group-id'])
+                    if 'alias' in group:
+                        self.group_aliases[group['group-id']] = group['alias']
                 if group['post']:
                     self.post_groups.append(group['group-id'])
         if self.friends:
@@ -91,7 +94,10 @@ class QQBotWS():
                         group_id = data['group_id']
                         if group_id not in self.listen_groups:
                             continue
-                        post_str += '[Group {}]'.format(group_id)
+                        if group_id in self.group_aliases:
+                            post_str += '[Group {}]'.format(self.group_aliases[group_id])
+                        else:
+                            post_str += '[Group {}]'.format(group_id)
                     elif data['message_type'] == 'private':
                         user_id = data['user_id']
                         if user_id not in self.listen_friends:
