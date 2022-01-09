@@ -35,6 +35,7 @@ class QQBotWS():
                     self.listen_friends.add(friend['user-id'])
                 if friend['post']:
                     self.post_friends.append(friend['user-id'])
+        self.ws_valid = False
     
     
     async def _send_group_msg(self, group_id, message):
@@ -73,6 +74,7 @@ class QQBotWS():
         self.ws = await websockets.connect(self.url)
         response = await self.ws.recv()
         print('qq connect: ' + response)
+        self.ws_valid = True
         while True:
             recv_data = await self.ws.recv()
             data = json.loads(recv_data)
@@ -105,7 +107,8 @@ class QQBotWS():
     
     
     async def post(self, message):
-        for group in self.post_groups:
-            await self._send_group_msg(group, message)
-        for friend in self.post_friends:
-            await self._send_private_msg(friend, message)
+        if self.ws_valid:
+            for group in self.post_groups:
+                await self._send_group_msg(group, message)
+            for friend in self.post_friends:
+                await self._send_private_msg(friend, message)

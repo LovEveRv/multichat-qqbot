@@ -17,6 +17,7 @@ class MultiChatWS():
         if config:
             self.url = config['multichat-url'].rstrip('/') + '/'
             self.key = config['multichat-key']
+        self.ws_valid = False
 
     
     async def run(self, qqws):
@@ -30,7 +31,11 @@ class MultiChatWS():
         await self.ws.send(json.dumps(register_obj))
         ack = await self.ws.recv()
         print('mc connect: ' + ack)
+        ack = json.loads(ack)
+        if ack['action'] == 'register-ack':
+            self.ws_valid = True
         while True:
+            # TODO: handle disconnection
             recv_data = await self.ws.recv()
             data = json.loads(recv_data)
             if data['action'] == 'forwarding-message':
@@ -45,11 +50,12 @@ class MultiChatWS():
     
     
     async def post(self, message):
-        obj = {
-            'action': 'client-message',
-            'content': message,
-        }
-        data = json.dumps(obj)
-        print('mc send' + data)
-        await self.ws.send(data)
+        if self.ws_valid:
+            obj = {
+                'action': 'client-message',
+                'content': message,
+            }
+            data = json.dumps(obj)
+            print('mc send: ' + data)
+            await self.ws.send(data)
         
