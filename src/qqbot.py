@@ -74,6 +74,7 @@ class QQBotWS():
 
     
     async def run(self, mcws):
+        # TODO: add retry mechanism
         self.ws = await websockets.connect(self.url)
         response = await self.ws.recv()
         print('qq connect: ' + response)

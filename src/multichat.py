@@ -6,6 +6,7 @@ import json
 import asyncio
 import websockets
 
+RETRY_INTERVAL = 10 # 10s
 
 class MultiChatWS():
     """
@@ -20,7 +21,7 @@ class MultiChatWS():
         self.ws_valid = False
 
     
-    async def run(self, qqws):
+    async def _run(self, qqws):
         self.ws = await websockets.connect(self.url)
         # register
         register_obj = {
@@ -35,7 +36,6 @@ class MultiChatWS():
         if ack['action'] == 'register-ack':
             self.ws_valid = True
         while True:
-            # TODO: handle disconnection
             recv_data = await self.ws.recv()
             data = json.loads(recv_data)
             if data['action'] == 'forwarding-message':
@@ -43,6 +43,17 @@ class MultiChatWS():
                 content = data['content']
                 post_str = '[{}]{}'.format(source, content)
                 await qqws.post(post_str)
+        
+    
+    async def run(self, qqws):
+        while True:
+            try:
+                await self._run(qqws)
+            except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError):
+                pass
+            # error occurred.
+            print('[ERROR] MCWS DISCONNECTED. RETRY IN {}s.'.format(RETRY_INTERVAL))
+            await asyncio.sleep(RETRY_INTERVAL)
 
     
     async def stop(self):
