@@ -52,6 +52,7 @@ class MultiChatWS():
             except (websockets.exceptions.ConnectionClosedError, ConnectionRefusedError):
                 pass
             # error occurred.
+            self.ws_valid = False
             print('[ERROR] MCWS DISCONNECTED. RETRY IN {}s.'.format(RETRY_INTERVAL))
             await asyncio.sleep(RETRY_INTERVAL)
 
