@@ -103,7 +103,7 @@ class QQBotWS():
                         user_id = data['user_id']
                         if user_id not in self.listen_friends:
                             continue
-                    sender = data['sender']['nickname']
+                    sender = data['sender']['card']
                     message = data['message']
                     post_str += '{}: {}'.format(sender, message)
                     await mcws.post(post_str)
