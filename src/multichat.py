@@ -41,7 +41,7 @@ class MultiChatWS():
             if data['action'] == 'forwarding-message':
                 source = data['source-client-name']
                 content = data['content']
-                post_str = '[{}]{}'.format(source, content)
+                post_str = '[{}] {}'.format(source, content)
                 await qqws.post(post_str)
         
     
