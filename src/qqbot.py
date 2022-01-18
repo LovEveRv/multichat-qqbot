@@ -96,9 +96,9 @@ class QQBotWS():
                         if group_id not in self.listen_groups:
                             continue
                         if group_id in self.group_aliases:
-                            post_str += '[Group {}]'.format(self.group_aliases[group_id])
+                            post_str += '[Group {}] '.format(self.group_aliases[group_id])
                         else:
-                            post_str += '[Group {}]'.format(group_id)
+                            post_str += '[Group {}] '.format(group_id)
                     elif data['message_type'] == 'private':
                         user_id = data['user_id']
                         if user_id not in self.listen_friends:
