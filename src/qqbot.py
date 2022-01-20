@@ -21,9 +21,13 @@ class QQBotWS():
             self.name = config['qqbot-name'] if 'qqbot-name' in config else None
         self.listen_groups = set()
         self.listen_friends = set()
+        self.tmp_listen_groups = set()
+        self.tmp_listen_friends = set()
         self.group_aliases = {}
         self.post_groups = []
         self.post_friends = []
+        self.tmp_post_groups = set()
+        self.tmp_post_friends = set()
         if self.groups:
             for group in self.groups:
                 if group['listen']:
@@ -39,6 +43,10 @@ class QQBotWS():
                 if friend['post']:
                     self.post_friends.append(friend['user-id'])
         self.ws_valid = False
+        self.commands = {
+            'bot stop posting' : self._on_bot_stop_posting,
+            'bot start posting': self._on_bot_start_posting,
+        }
     
     
     async def _send_group_msg(self, group_id, message):
@@ -73,6 +81,44 @@ class QQBotWS():
         await self.ws.send(data)
 
     
+    async def _on_bot_stop_posting(self, data):
+        if data['message_type'] == 'group' and data['sub_type'] == 'normal':
+            group_id = data['group_id']
+            if group_id not in self.post_groups:
+                return
+            self.post_groups.remove(group_id)
+            self.tmp_post_groups.add(group_id)
+            msg = 'Bot将暂停向本群推送消息'
+            await self._send_group_msg(group_id, msg)
+        elif data['message_type'] == 'private':
+            user_id = data['user_id']
+            if user_id not in self.post_friends:
+                return
+            self.post_friends.remove(user_id)
+            self.tmp_post_friends.add(user_id)
+            msg = 'Bot将暂停向您推送消息'
+            await self._send_private_msg(user_id, msg)
+
+
+    async def _on_bot_start_posting(self, data):
+        if data['message_type'] == 'group' and data['sub_type'] == 'normal':
+            group_id = data['group_id']
+            if group_id not in self.tmp_post_groups:
+                return
+            self.tmp_post_groups.remove(group_id)
+            self.post_groups.append(group_id)
+            msg = 'Bot将开始向本群推送消息'
+            await self._send_group_msg(group_id, msg)
+        elif data['message_type'] == 'private':
+            user_id = data['user_id']
+            if user_id not in self.tmp_post_friends:
+                return
+            self.tmp_post_friends.remove(user_id)
+            self.post_friends.append(user_id)
+            msg = 'Bot将开始向您推送消息'
+            await self._send_private_msg(user_id, msg)
+
+    
     async def run(self, mcws):
         # TODO: add retry mechanism
         self.ws = await websockets.connect(self.url)
@@ -90,6 +136,11 @@ class QQBotWS():
                 # is an event
                 if data['post_type'] == 'message':
                     post_str = ''
+                    message = data['message']
+                    # handle commands
+                    if message in self.commands:
+                        await self.commands[message](data)
+                        continue
                     # TODO: handle anonymous
                     if data['message_type'] == 'group' and data['sub_type'] == 'normal':
                         group_id = data['group_id']
@@ -104,7 +155,6 @@ class QQBotWS():
                         if user_id not in self.listen_friends:
                             continue
                     sender = data['sender']['card'] if data['sender']['card'] else data['sender']['nickname']
-                    message = data['message']
                     post_str += '{}: {}'.format(sender, message)
                     await mcws.post(post_str)
 
