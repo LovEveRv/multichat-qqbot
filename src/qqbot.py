@@ -3,7 +3,7 @@ A front-end for CQHTTP (running on ws mode).
 """
 
 import json
-import asyncio
+import time
 import websockets
 
 
@@ -11,6 +11,8 @@ class QQBotWS():
     """
     Websocket connected to CQHTTP (running on websocket mode).
     """
+
+    CONNECT_RETRY_SEC = 10
     
     def __init__(self, config=None):
         self.config = config
@@ -118,45 +120,52 @@ class QQBotWS():
             msg = 'Bot将开始向您推送消息'
             await self._send_private_msg(user_id, msg)
 
+    async def _on_recv_qq_msg(self, data, mcws):
+        if data['post_type'] == 'message':
+            post_str = ''
+            message = data['message']
+            # handle commands
+            if message in self.commands:
+                await self.commands[message](data)
+                return
+            # TODO: handle anonymous
+            if data['message_type'] == 'group' and data['sub_type'] == 'normal':
+                group_id = data['group_id']
+                if group_id not in self.listen_groups:
+                    return
+                if group_id in self.group_aliases:
+                    post_str += '[Group {}] '.format(self.group_aliases[group_id])
+                else:
+                    post_str += '[Group {}] '.format(group_id)
+            elif data['message_type'] == 'private':
+                user_id = data['user_id']
+                if user_id not in self.listen_friends:
+                    return
+            sender = data['sender']['card'] if data['sender']['card'] else data['sender']['nickname']
+            post_str += '{}: {}'.format(sender, message)
+            await mcws.post(post_str)
+
     
     async def run(self, mcws):
-        # TODO: add retry mechanism
-        self.ws = await websockets.connect(self.url)
-        response = await self.ws.recv()
-        print('qq connect: ' + response)
-        self.ws_valid = True
-        while True:
-            recv_data = await self.ws.recv()
-            data = json.loads(recv_data)
-            if 'retcode' in data:
-                # is a response to "send"
-                print('qq recv: ' + recv_data)
-                # do nothing
-            else:
-                # is an event
-                if data['post_type'] == 'message':
-                    post_str = ''
-                    message = data['message']
-                    # handle commands
-                    if message in self.commands:
-                        await self.commands[message](data)
-                        continue
-                    # TODO: handle anonymous
-                    if data['message_type'] == 'group' and data['sub_type'] == 'normal':
-                        group_id = data['group_id']
-                        if group_id not in self.listen_groups:
-                            continue
-                        if group_id in self.group_aliases:
-                            post_str += '[Group {}] '.format(self.group_aliases[group_id])
-                        else:
-                            post_str += '[Group {}] '.format(group_id)
-                    elif data['message_type'] == 'private':
-                        user_id = data['user_id']
-                        if user_id not in self.listen_friends:
-                            continue
-                    sender = data['sender']['card'] if data['sender']['card'] else data['sender']['nickname']
-                    post_str += '{}: {}'.format(sender, message)
-                    await mcws.post(post_str)
+        async for ws in websockets.connect(self.url):
+            self.ws = ws
+            try:
+                response = await self.ws.recv()
+                print('qq connect: {}'.format(response))
+                self.ws_valid = True
+                while True:
+                    recv_data = await self.ws.recv()
+                    data = json.loads(recv_data)
+                    if 'retcode' in data:
+                        # is a response to "send"
+                        print('qq recv: {}'.format(recv_data))
+                        # do nothing
+                    else:
+                        # is an event
+                        await self._on_recv_qq_msg(data, mcws)
+            except websockets.exceptions.WebSocketException as e:
+                print('[ERROR] Connection lost, retry in {} seconds'.format(self.CONNECT_RETRY_SEC))
+                time.sleep(self.CONNECT_RETRY_SEC)
 
     
     async def stop(self):
