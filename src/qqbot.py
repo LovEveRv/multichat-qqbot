@@ -163,13 +163,15 @@ class QQBotWS():
                     else:
                         # is an event
                         await self._on_recv_qq_msg(data, mcws)
-            except websockets.exceptions.WebSocketException as e:
+            except websockets.exceptions.ConnectionClosedError as e:
                 print('[ERROR] Connection lost, retry in {} seconds'.format(self.CONNECT_RETRY_SEC))
+                self.ws_valid = False
                 time.sleep(self.CONNECT_RETRY_SEC)
 
     
     async def stop(self):
         await self.ws.close()
+        self.ws_valid = False
     
     
     async def post(self, message):
